@@ -22,6 +22,13 @@ connection = Promise.promisifyAll(connection);
 
 let app = express(); //application
 
+// cors 跨源請求
+const cors = require("cors");
+// let corsOprions = {
+//   origin: "", //* 全部
+// };
+app.use(cors());
+
 // app.use 告訴 express 有個中間件(middleware)
 // middleware 只是一個函式，會有三個參數
 app.use((req, res, next) => {
@@ -40,14 +47,21 @@ app.use((req, res, next) => {
   //要寫next()才會接下一個步驟
 });
 
-// express.static是middleware內建的中間件
+// app.use(PATH, express.static(檔案夾))
+// express.static(檔案夾名稱) 是內建的中間件
 app.use(express.static("static"));
-// 可直接拿到 http://localhost:3001/about.html
+// 1. 不指定路徑，從根目錄開始 http://localhost:3001/about.html
+app.use("/static", express.static("static"));
+// 2. 指定路徑 http://localhost:3001/static/about.html
+
+// 例2-1.
+app.use("/pug", express.static("pug-output"));
+// 指定路徑 http://localhost:3001/pug/index.html
 
 // app.set 設定這個 application 的一些變數
 // views: 告訴 app view 的檔案夾是誰
 // view engine: 告訴app你用哪一個 view engine
-app.set("views", "views");
+app.set("views", path.join(__dirname, "views"));
 app.set("view engine", "pug");
 
 // 設定路由 route / router  --> 也算是一種中間件
@@ -62,13 +76,25 @@ app.get("/", (req, res, next) => {
 
 app.get("/", (req, res) => {
   console.log("我是首頁2");
-  res.send("我是 Express 首頁");
+  // res.send("我是 Express 首頁");
+
+  let data = {
+    name: "pei",
+    job: "fairy",
+    cities: ["Kaohsiung", "Taichung"],
+  };
+  // 告訴 express 這個路由要用的樣板檔案是哪一個頁面需要 render
+  res.render("index", data);
 });
 
 app.get("/member", (req, res) => {
   res.send("我是會員頁");
 });
 
+// 前端路由
+// /member, /products, /register, /login
+// 後端路由
+// 建議加個 /api
 app.get("/api/test", (req, res) => {
   res.json({
     name: "OOO",
@@ -76,9 +102,29 @@ app.get("/api/test", (req, res) => {
   });
 });
 
+// 列表:從sql上撈出全部資料
 app.get("/api/todos", async (req, res) => {
   let data = await connection.queryAsync("SELECT * FROM todos");
   res.json(data);
+});
+
+// /api/todos/24
+// 根據 id 取得單筆資料
+app.get("/api/todos/:todoId", async (req, res) => {
+  // req.params.todoId  拿到變數
+  let data = await connection.queryAsync("SELECT * FROM todos WHERE id = ?;", [
+    req.params.todoId,
+  ]);
+  // 直接把陣列回給前端
+  // res.json(data);
+  if (data.length > 0) {
+    res.json(data[0]);
+  } else {
+    // ? 空的
+    // /api/todos/44
+    // res.send(null);
+    res.status(404).send("Not Found");
+  }
 });
 
 // 負責做紀錄的中間件
